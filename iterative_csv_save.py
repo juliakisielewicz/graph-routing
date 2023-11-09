@@ -56,10 +56,10 @@ def main():
     os.system(f"rm {csv_paths}/*")
     
     centre_point = (50.064651, 19.944981) # Kraków centre
-    whole_bb_length = 300000 # 200 km
+    whole_bb_length = 500000 # [m]
     north, south, east, west = ox.utils_geo.bbox_from_point(centre_point, dist=whole_bb_length // 2)
     stride = 0.2 # ~20 km
-    bb_box_distance = stride * 100000 / 2 # 0.5 km TODO: check if bigger margin is needed
+    bb_box_distance = int(stride * 100000 / 1.9) # TODO: check if bigger margin is needed
     
     # remember that west can be greater than east etc.
     lat_arr = np.arange(south, north, stride)
