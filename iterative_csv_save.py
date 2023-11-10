@@ -5,11 +5,26 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-def fetch_graph(point, distance=1000):
-    north, south, east, west = ox.utils_geo.bbox_from_point(point, dist=distance)
-    graph = ox.graph.graph_from_bbox(north, south, east, west, network_type="all_private", 
-                                     simplify=False, retain_all=False, truncate_by_edge=True)
-    graph = ox.utils_graph.remove_isolated_nodes(graph)
+def fetch_graph(bb_box, margin=0.001):
+    north, south, east, west = bb_box
+    
+    # Margin for safety
+    if north > south:
+        north += margin
+        south -= margin
+    else:
+        south += margin
+        north -= margin
+        
+    if east > west:
+        east += margin
+        west -= margin
+    else:
+        west += margin
+        east -= margin
+    
+    graph = ox.graph.graph_from_bbox(north, south, east, west, network_type="all", 
+                                     simplify=False, retain_all=True, truncate_by_edge=True)
     
     return graph
 
@@ -38,7 +53,7 @@ def transform_graph_to_dataframes(graph):
     return nodes, relationships, edge_table_sql
 
 
-def save_to_csv(nodes_df, relationships_df, egde_table, path):
+def save_to_csv(nodes_df, relationships_df, edge_table, path):
     header = False
     
     if not os.path.exists(os.path.join(path, "nodes_neo4j.csv")):
@@ -46,7 +61,7 @@ def save_to_csv(nodes_df, relationships_df, egde_table, path):
     
     nodes_df.to_csv(os.path.join(path, "nodes_neo4j.csv"), mode="a", index=False, header=header)
     relationships_df.to_csv(os.path.join(path, "relationships_neo4j.csv"), mode="a", index=False, header=header)
-    egde_table.to_csv(os.path.join(path, "egde_table_sql.csv"), mode="a", index=False, header=header)
+    edge_table.to_csv(os.path.join(path, "edge_table_sql.csv"), mode="a", index=False, header=header)
     
 
 def main():
@@ -56,34 +71,45 @@ def main():
     os.system(f"rm {csv_paths}/*")
     
     centre_point = (50.064651, 19.944981) # Kraków centre
-    whole_bb_length = 500000 # [m]
-    north, south, east, west = ox.utils_geo.bbox_from_point(centre_point, dist=whole_bb_length // 2)
-    stride = 0.2 # ~20 km
-    bb_box_distance = int(stride * 100000 / 1.9) # TODO: check if bigger margin is needed
+    bb_dist_from_centre = 100000 # [m]
+    north, south, east, west = ox.utils_geo.bbox_from_point(centre_point, dist=bb_dist_from_centre)
+    stride = 0.2 # 0.1 ~ 10 km
     
     # remember that west can be greater than east etc.
     lat_arr = np.arange(south, north, stride)
     lon_arr = np.arange(west, east, stride)
     
-    coords_mesh_x, coords_mesh_y = np.meshgrid(lat_arr, lon_arr)
+    mesh_x, mesh_y = np.meshgrid(lat_arr, lon_arr)
+    mesh_x_1 = mesh_x[:-1, :-1].reshape(-1)
+    mesh_x_2 = mesh_x[1:, 1:].reshape(-1)
+    mesh_y_1 = mesh_y[:-1, :-1].reshape(-1)
+    mesh_y_2 = mesh_y[1:, 1:].reshape(-1)
     
-    for x, y in tqdm(zip(coords_mesh_x.reshape(-1), coords_mesh_y.reshape(-1)), 
-                     total=coords_mesh_x.reshape(-1).shape[0], desc="Saving chunk"):
-        point = (x, y)
-        graph = fetch_graph(point, distance=bb_box_distance)
+    for x1, x2, y1, y2 in tqdm(zip(mesh_x_1, mesh_x_2, mesh_y_1, mesh_y_2), 
+                     total=mesh_x_1.shape[0], desc="Saving chunk"):
+        bb_box = (x1, x2, y1, y2)
+        graph = fetch_graph(bb_box)
         nodes, relationships, edge_table_sql = transform_graph_to_dataframes(graph)
         save_to_csv(nodes, relationships, edge_table_sql, csv_paths)
+    
+    # Size before removing duplicates
+    print("Before:")
+    os.system(f"cd {csv_paths}; ls -lh")
     
     # Drop duplicates
     os.system(f"cd {csv_paths}; awk -F, '!x[$1]++' nodes_neo4j.csv > nodes_neo4j_uniq.csv")
     os.system(f"cd {csv_paths}; awk -F, '!x[$1,$2,$3]++' relationships_neo4j.csv > relationships_neo4j_uniq.csv")
-    os.system(f"cd {csv_paths}; awk -F, '!x[$1,$2,$3]++' egde_table_sql.csv > egde_table_sql_uniq.csv")
+    os.system(f"cd {csv_paths}; awk -F, '!x[$1,$2,$3]++' edge_table_sql.csv > edge_table_sql_uniq.csv")
     os.system(f"cd {csv_paths}; rm nodes_neo4j.csv")
     os.system(f"cd {csv_paths}; rm relationships_neo4j.csv")
-    os.system(f"cd {csv_paths}; rm egde_table_sql.csv")
+    os.system(f"cd {csv_paths}; rm edge_table_sql.csv")
     os.system(f"cd {csv_paths}; mv nodes_neo4j_uniq.csv nodes_neo4j.csv")
     os.system(f"cd {csv_paths}; mv relationships_neo4j_uniq.csv relationships_neo4j.csv")
-    os.system(f"cd {csv_paths}; mv egde_table_sql_uniq.csv egde_table_sql.csv")
+    os.system(f"cd {csv_paths}; mv edge_table_sql_uniq.csv edge_table_sql.csv")
+    
+    # Size after removing duplicates
+    print("After:")
+    os.system(f"cd {csv_paths}; ls -lh")
     
     
 if __name__ == "__main__":
