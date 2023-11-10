@@ -75,16 +75,15 @@ def main():
         save_to_csv(nodes, relationships, edge_table_sql, csv_paths)
     
     # Drop duplicates
-    os.system(f"cd {csv_paths}")
-    os.system("awk -F, '!x[$1]++' nodes_neo4j.csv > nodes_neo4j_uniq.csv")
-    os.system("awk -F, '!x[$1,$2,$3]++' relationships_neo4j.csv > relationships_neo4j_uniq.csv")
-    os.system("awk -F, '!x[$1,$2,$3]++' egde_table_sql.csv > egde_table_sql_uniq.csv")
-    os.system("rm nodes_neo4j.csv")
-    os.system("rm relationships_neo4j.csv")
-    os.system("rm egde_table_sql.csv")
-    os.system("mv nodes_neo4j_uniq.csv nodes_neo4j.csv")
-    os.system("mv relationships_neo4j_uniq.csv relationships_neo4j.csv")
-    os.system("mv egde_table_sql_uniq.csv egde_table_sql.csv")
+    os.system(f"cd {csv_paths}; awk -F, '!x[$1]++' nodes_neo4j.csv > nodes_neo4j_uniq.csv")
+    os.system(f"cd {csv_paths}; awk -F, '!x[$1,$2,$3]++' relationships_neo4j.csv > relationships_neo4j_uniq.csv")
+    os.system(f"cd {csv_paths}; awk -F, '!x[$1,$2,$3]++' egde_table_sql.csv > egde_table_sql_uniq.csv")
+    os.system(f"cd {csv_paths}; rm nodes_neo4j.csv")
+    os.system(f"cd {csv_paths}; rm relationships_neo4j.csv")
+    os.system(f"cd {csv_paths}; rm egde_table_sql.csv")
+    os.system(f"cd {csv_paths}; mv nodes_neo4j_uniq.csv nodes_neo4j.csv")
+    os.system(f"cd {csv_paths}; mv relationships_neo4j_uniq.csv relationships_neo4j.csv")
+    os.system(f"cd {csv_paths}; mv egde_table_sql_uniq.csv egde_table_sql.csv")
     
     
 if __name__ == "__main__":
