@@ -5,7 +5,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-def fetch_graph(bb_box, margin=0.001):
+def fetch_graph(bb_box, margin=0.01):
     north, south, east, west = bb_box
     
     # Margin for safety
@@ -28,12 +28,13 @@ def fetch_graph(bb_box, margin=0.001):
     
     return graph
 
+
 def transform_graph_to_dataframes(graph):
     gdf_nodes, gdf_relationships = ox.graph_to_gdfs(graph)
     gdf_nodes.reset_index(inplace=True)
     gdf_relationships.reset_index(inplace=True)
     
-    relationships = gdf_relationships[["u", "v", "osmid", "length", "geometry"]].copy()
+    relationships = gdf_relationships[["u", "v", "osmid", "length", "name", "highway", "geometry"]].copy()
     relationships = relationships.rename(columns={"u": "source", "v": "target"})
     nodes = gdf_nodes[["osmid", "geometry"]].copy()
     edge_table_sql = relationships.copy()
@@ -46,8 +47,8 @@ def transform_graph_to_dataframes(graph):
     edge_table_sql["x2"] = edge_table_sql.apply(lambda x: x.geometry.coords.xy[0][1], axis=1)
     edge_table_sql["y2"] = edge_table_sql.apply(lambda x: x.geometry.coords.xy[1][1], axis=1)
     
-    relationships = relationships.drop(columns=["geometry"])
     nodes = nodes.drop(columns=["geometry"])
+    relationships = relationships.drop(columns=["geometry"])
     edge_table_sql = edge_table_sql.drop(columns=["geometry"])
     
     return nodes, relationships, edge_table_sql
@@ -65,15 +66,15 @@ def save_to_csv(nodes_df, relationships_df, edge_table, path):
     
 
 def main():
-    foldername = "krakow_big"
+    foldername = "test"
     csv_paths = f"./data/{foldername}"
     Path(csv_paths).mkdir(exist_ok=True, parents=True)
     os.system(f"rm {csv_paths}/*")
     
     centre_point = (50.064651, 19.944981) # Kraków centre
-    bb_dist_from_centre = 100000 # [m]
+    bb_dist_from_centre = 150000 # [m]
     north, south, east, west = ox.utils_geo.bbox_from_point(centre_point, dist=bb_dist_from_centre)
-    stride = 0.2 # 0.1 ~ 10 km
+    stride = 0.5 # 0.1 ~ 10 km
     
     # remember that west can be greater than east etc.
     lat_arr = np.arange(south, north, stride)
