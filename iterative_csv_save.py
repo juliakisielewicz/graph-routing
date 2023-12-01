@@ -48,7 +48,6 @@ def transform_graph_to_dataframes(graph, centre_point, max_distance):
     edge_table_sql["x2"] = edge_table_sql.apply(lambda x: x.geometry.coords.xy[0][1], axis=1)
     edge_table_sql["y2"] = edge_table_sql.apply(lambda x: x.geometry.coords.xy[1][1], axis=1)
     
-    # x małe, y duże
     nodes["distance"] = nodes.apply(lambda x: int(max(
                                     np.floor(geopy.distance.distance(centre_point, (x["y"], centre_point[1])).km / max_distance * 4.9999),
                                     np.floor(geopy.distance.distance(centre_point, (centre_point[0], x["x"])).km / max_distance * 4.9999))),
